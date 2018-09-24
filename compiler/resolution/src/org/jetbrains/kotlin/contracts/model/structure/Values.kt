@@ -17,16 +17,18 @@
 package org.jetbrains.kotlin.contracts.model.structure
 
 import org.jetbrains.kotlin.builtins.DefaultBuiltIns
-import org.jetbrains.kotlin.descriptors.ValueDescriptor
-import org.jetbrains.kotlin.contracts.description.expressions.ConstantReference
 import org.jetbrains.kotlin.contracts.description.expressions.BooleanConstantReference
+import org.jetbrains.kotlin.contracts.description.expressions.ConstantReference
+import org.jetbrains.kotlin.contracts.model.AbstractESValue
 import org.jetbrains.kotlin.contracts.model.ESExpressionVisitor
-import org.jetbrains.kotlin.contracts.model.ESValue
+import org.jetbrains.kotlin.descriptors.ValueDescriptor
 import org.jetbrains.kotlin.types.KotlinType
 import org.jetbrains.kotlin.types.typeUtil.makeNullable
 import java.util.*
 
-open class ESVariable(val descriptor: ValueDescriptor) : ESValue(descriptor.type) {
+open class ESVariable(val descriptor: ValueDescriptor) : AbstractESValue() {
+    override val type: KotlinType? = descriptor.type
+
     override fun <T> accept(visitor: ESExpressionVisitor<T>): T = visitor.visitVariable(this)
 
     override fun equals(other: Any?): Boolean {
@@ -45,7 +47,8 @@ open class ESVariable(val descriptor: ValueDescriptor) : ESValue(descriptor.type
     override fun toString(): String = descriptor.toString()
 }
 
-open class ESConstant private constructor(open val constantReference: ConstantReference, override val type: KotlinType) : ESValue(type) {
+class ESConstant private constructor(val constantReference: ConstantReference, override val type: KotlinType) : AbstractESValue() {
+
     override fun <T> accept(visitor: ESExpressionVisitor<T>): T = visitor.visitConstant(this)
 
     override fun equals(other: Any?): Boolean {

@@ -40,6 +40,7 @@ import org.jetbrains.kotlin.resolve.calls.tasks.ExplicitReceiverKind
 import org.jetbrains.kotlin.resolve.constants.CompileTimeConstant
 import org.jetbrains.kotlin.resolve.constants.UnsignedErrorValueTypeConstant
 import org.jetbrains.kotlin.resolve.scopes.receivers.ExpressionReceiver
+import org.jetbrains.kotlin.resolve.scopes.receivers.ExtensionReceiver
 import org.jetbrains.kotlin.resolve.scopes.receivers.ReceiverValue
 import org.jetbrains.kotlin.types.KotlinType
 import org.jetbrains.kotlin.utils.addIfNotNull
@@ -154,8 +155,24 @@ class EffectsExtractingVisitor(
     }
 
     private fun ReceiverValue.toComputation(): Computation = when (this) {
-        is ExpressionReceiver -> extractOrGetCached(expression)
+        is ExpressionReceiver -> {
+            val value = extractOrGetCached(expression)
+            if (value !is ESDataFlowValue) {
+                value
+            } else {
+                ESDataFlowValue(value.descriptor, value.dataFlowValue, this)
+            }
+        }
+        is ExtensionReceiver -> ESDataFlowReceiver(this, createDataFlowValue())
         else -> UNKNOWN_COMPUTATION
+    }
+
+    private fun ExtensionReceiver.createDataFlowValue(): DataFlowValue {
+        return dataFlowValueFactory.createDataFlowValue(
+            receiverValue = this,
+            bindingContext = trace.bindingContext,
+            containingDeclarationOrModule = this.declarationDescriptor
+        )
     }
 
     private fun KtExpression.createDataFlowValue(): DataFlowValue? {
@@ -170,7 +187,7 @@ class EffectsExtractingVisitor(
     private fun FunctionDescriptor.getFunctor(): Functor? {
         trace[BindingContext.FUNCTOR, this]?.let { return it }
 
-        val functor = ContractInterpretationDispatcher().resolveFunctor(this) ?: return null
+        val functor = ContractInterpretationDispatcher().resolveFunctor(this, AdditionalReducerImpl()) ?: return null
         trace.record(BindingContext.FUNCTOR, this, functor)
         return functor
     }

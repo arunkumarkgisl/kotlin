@@ -16,32 +16,50 @@
 
 package org.jetbrains.kotlin.contracts
 
+import org.jetbrains.kotlin.contracts.model.AbstractESValue
 import org.jetbrains.kotlin.contracts.model.ESExpressionVisitor
-import org.jetbrains.kotlin.contracts.model.ESValue
+import org.jetbrains.kotlin.contracts.model.ESReceiverValue
 import org.jetbrains.kotlin.contracts.model.structure.ESVariable
 import org.jetbrains.kotlin.descriptors.ValueDescriptor
 import org.jetbrains.kotlin.psi.KtLambdaExpression
 import org.jetbrains.kotlin.resolve.calls.smartcasts.DataFlowValue
 import org.jetbrains.kotlin.resolve.scopes.receivers.ReceiverValue
 
-class ESDataFlowValue(descriptor: ValueDescriptor, val dataFlowValue: DataFlowValue) : ESVariable(descriptor) {
-    override fun equals(other: Any?): Boolean {
+interface ESDataFlow {
+    val dataFlowValue: DataFlowValue
+
+    fun dataFlowEquals(other: Any?): Boolean {
         if (this === other) return true
-        if (javaClass != other?.javaClass) return false
+        if (other !is ESDataFlow) return false
 
-        other as ESDataFlowValue
-
-        if (dataFlowValue != other.dataFlowValue) return false
-
-        return true
+        return dataFlowValue == other.dataFlowValue
     }
+}
+
+class ESDataFlowValue(
+    descriptor: ValueDescriptor,
+    override val dataFlowValue: DataFlowValue,
+    override val receiverValue: ReceiverValue? = null
+) : ESVariable(descriptor), ESDataFlow {
+    override fun equals(other: Any?): Boolean = dataFlowEquals(other)
 
     override fun hashCode(): Int {
         return dataFlowValue.hashCode()
     }
 }
 
-class ESLambda(val lambda: KtLambdaExpression, val receiverValue: ReceiverValue?) : ESValue(null) {
+class ESDataFlowReceiver(
+    receiverValue: ReceiverValue,
+    override val dataFlowValue: DataFlowValue
+) : ESReceiverValue(receiverValue), ESDataFlow {
+    override fun equals(other: Any?): Boolean = dataFlowEquals(other)
+
+    override fun hashCode(): Int {
+        return dataFlowValue.hashCode()
+    }
+}
+
+class ESLambda(val lambda: KtLambdaExpression, override val receiverValue: ReceiverValue?) : AbstractESValue() {
     override fun <T> accept(visitor: ESExpressionVisitor<T>): T {
         throw IllegalStateException("Lambdas shouldn't be visited by ESExpressionVisitor")
     }

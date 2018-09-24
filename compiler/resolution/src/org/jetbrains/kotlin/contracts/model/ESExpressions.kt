@@ -16,6 +16,8 @@
 
 package org.jetbrains.kotlin.contracts.model
 
+import org.jetbrains.kotlin.descriptors.FunctionDescriptor
+import org.jetbrains.kotlin.resolve.scopes.receivers.ReceiverValue
 import org.jetbrains.kotlin.types.KotlinType
 
 interface ESExpression {
@@ -26,6 +28,28 @@ interface ESOperator : ESExpression {
     val functor: Functor
 }
 
-abstract class ESValue(override val type: KotlinType?) : Computation, ESExpression {
+interface ESValue : Computation, ESExpression {
+    val receiverValue: ReceiverValue?
+}
+
+abstract class AbstractESValue : ESValue {
     override val effects: List<ESEffect> = listOf()
+    override val receiverValue: ReceiverValue? = null
+    override val type: KotlinType? = null
+}
+
+class ESFunction(val descriptor: FunctionDescriptor) : AbstractESValue() {
+    override fun <T> accept(visitor: ESExpressionVisitor<T>): T = visitor.visitFunction(this)
+}
+
+class ESReceiverReference(val lambda: ESValue) : AbstractESValue() {
+    override fun <T> accept(visitor: ESExpressionVisitor<T>): T = visitor.visitReceiverReference(this)
+}
+
+interface ESReceiver : ESValue {
+    override val receiverValue: ReceiverValue
+}
+
+open class ESReceiverValue(override val receiverValue: ReceiverValue) : AbstractESValue(), ESReceiver {
+    override fun <T> accept(visitor: ESExpressionVisitor<T>): T = visitor.visitReceiver(this)
 }
